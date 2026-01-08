@@ -1096,6 +1096,23 @@ common_init_result::common_init_result(common_params & params) :
 
     if (params.fit_params) {
         LOG_INF("%s: fitting params to device memory, for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on\n", __func__);
+
+        // Ensure tensor_buft_overrides buffer exists for llama_params_fit
+        const size_t ntbo = llama_max_tensor_buft_overrides();
+        if (params.tensor_buft_overrides.size() < ntbo) {
+            params.tensor_buft_overrides.resize(ntbo);
+            for (auto & o : params.tensor_buft_overrides) {
+                o = { nullptr, nullptr };
+            }
+        } else if (!params.tensor_buft_overrides.empty()) {
+            params.tensor_buft_overrides.back() = { nullptr, nullptr };
+        }
+
+        // Allow fitter to reduce context when unset/negative
+        if (params.n_ctx <= 0) {
+            cparams.n_ctx = 0;
+        }
+
         llama_params_fit(params.model.path.c_str(), &mparams, &cparams,
             params.tensor_split, params.tensor_buft_overrides.data(), params.fit_params_target, params.fit_params_min_ctx,
             params.verbosity >= 4 ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_ERROR);
